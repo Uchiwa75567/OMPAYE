@@ -1,0 +1,849 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Orange Money API",
+        "description": "# Orange Money API - Senegal 🟠\n\n## 📱 **Application de Paiement Mobile Orange**\n\nCette API fournit un système complet de paiement mobile inspiré d'Orange Money pour le marché sénégalais. Elle permet aux utilisateurs de gérer leurs comptes, effectuer des transactions, et utiliser les services de paiement via QR codes.\n\n## 🏗️ **Architecture du Système**\n\n### **Types d'Utilisateurs**\n- **👤 Clients** : Utilisateurs finaux avec numéros Orange (77xxxxxxx/78xxxxxxx)\n- **🏪 Marchands** : Commerçants pour paiements QR codes\n- **👥 Distributeurs** : Agents pour dépôts/retraits en espèces\n- **👑 Administrateurs** : Gestion du système\n\n### **Fonctionnalités Principales**\n- ✅ **Auto-registration** : Inscription automatique avec numéros Orange\n- ✅ **Authentification SMS** : Code par SMS avec fallbacks multi-providers\n- ✅ **Gestion Comptes** : Solde, historique, transactions\n- ✅ **Transactions** : Dépôt, retrait, transfert, paiement QR\n- ✅ **JWT Tokens** : Authentification sécurisée Bearer\n- ✅ **PIN Sécurité** : Système de codes PIN pour transactions sensibles\n\n## 🔐 **Authentification**\n\n**Header requis** : `Authorization: Bearer YOUR_JWT_TOKEN`\n\n## 📊 **Système d'Unités**\n- **💰 Unité** : XOF (Franc CFA)\n- **📝 Exemple** : 5000 = 5000 XOF\n- **🗄️ Stockage** : Automatiquement converti en centimes pour la BDD\n\n## 🧪 **Valeurs de Test**\n\n### **Agent Distributeur**\n- **ID** : `a056e54a-4828-4160-a97c-9ab67a7e9116`\n- **Nom** : Diallo Ali\n- **Téléphone** : 789876543\n- **Rôle** : distributeur\n- **PIN** : 1234\n\n### **Utilisateur Test**\n- **Téléphone** : 785052217\n- **Auto-enregistrement** : Possible via SMS\n- **Code SMS** : Affiché dans la réponse (mode simulation)\n\n## 🏃‍♂️ **Guide de Démarrage Rapide**\n\n1. **Connexion** : `POST /api/auth/login` avec numéro Orange\n2. **Vérification** : `POST /api/auth/verify-sms` avec code reçu\n3. **Token JWT** : Utiliser le token pour les appels suivants\n4. **Dépôt** : `POST /api/transactions/depot` avec agent_id\n5. **Solde** : `GET /api/compte` pour voir le solde\n6. **Historique** : `GET /api/historique` pour voir les transactions\n\n## 📋 **Endpoints Principaux**\n\n### **🔐 Authentification**\n- `POST /api/auth/login` - Demande code SMS\n- `POST /api/auth/verify-sms` - Vérification et token\n- `POST /api/auth/set-pin` - Définir PIN sécurité\n\n### **💰 Transactions**\n- `POST /api/transactions/depot` - Dépôt avec agent\n- `POST /api/transactions/retrait` - Retrait avec agent + PIN\n- `POST /api/transactions/transfert` - Transfert vers autre utilisateur\n- `POST /api/transactions/paiement` - Paiement QR code\n\n### **👤 Gestion Compte**\n- `GET /api/compte` - Solde et type de compte\n- `GET /api/historique` - Historique des transactions\n\n## 🌐 **URLs de Base**\n- **API** : http://localhost:8001\n- **Documentation** : http://localhost:8001/api/documentation\n\n---\n*Développé pour Orange Money Sénégal 🇸🇳*",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8001"
+        }
+    ],
+    "paths": {
+        "/api/admin/users": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Liste des utilisateurs",
+                "operationId": "8734f0eb21eaec99b614d902ba09f030",
+                "responses": {
+                    "200": {
+                        "description": "Liste users",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    },
+                    "403": {
+                        "description": "Rôle admin requis"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/transactions": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Toutes les transactions",
+                "operationId": "ffa4d9d0d6b7c1dd523cda0426235a11",
+                "responses": {
+                    "200": {
+                        "description": "Liste transactions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    },
+                    "403": {
+                        "description": "Rôle admin requis"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/create-marchand": {
+            "post": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Créer un compte marchand",
+                "operationId": "914bcb92e8c4f2d9af15c3a421edf291",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "nom",
+                                    "prenom",
+                                    "telephone",
+                                    "sexe",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "nom": {
+                                        "type": "string",
+                                        "example": "Dupont"
+                                    },
+                                    "prenom": {
+                                        "type": "string",
+                                        "example": "Jean"
+                                    },
+                                    "telephone": {
+                                        "type": "string",
+                                        "example": "781234567"
+                                    },
+                                    "sexe": {
+                                        "type": "string",
+                                        "example": "M"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "password123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Marchand créé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "user": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    },
+                    "403": {
+                        "description": "Rôle admin requis"
+                    },
+                    "422": {
+                        "description": "Données invalides"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Demande de code SMS",
+                "operationId": "dd51a484b7fa0f97c7680fdbde14cf5f",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "telephone"
+                                ],
+                                "properties": {
+                                    "telephone": {
+                                        "type": "string",
+                                        "example": "771234567"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "SMS envoyé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "session_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Erreur"
+                    }
+                }
+            }
+        },
+        "/api/auth/verify-sms": {
+            "post": {
+                "summary": "Vérifier le code SMS et obtenir le token",
+                "operationId": "29f6fc73768d83c9c3738e79e7ff36fa",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code"
+                                ],
+                                "properties": {
+                                    "code": {
+                                        "type": "string",
+                                        "example": "123456"
+                                    },
+                                    "password": {
+                                        "description": "Mot de passe pour les futures connexions (optionnel pour nouveaux utilisateurs)",
+                                        "type": "string",
+                                        "example": "motdepasse123",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Token obtenu",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "access_token": {
+                                            "type": "string"
+                                        },
+                                        "token_type": {
+                                            "type": "string"
+                                        },
+                                        "user": {
+                                            "properties": {
+                                                "nom": {
+                                                    "type": "string"
+                                                },
+                                                "prenom": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "first_login": {
+                                            "description": "True si c'est le premier login",
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Code invalide"
+                    }
+                }
+            }
+        },
+        "/api/auth/login-password": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Connexion avec téléphone et mot de passe",
+                "operationId": "ae14d2beace50522df34bb8d90519e23",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "telephone",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "telephone": {
+                                        "type": "string",
+                                        "example": "782345678"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "motdepasse123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Connexion réussie",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "access_token": {
+                                            "type": "string"
+                                        },
+                                        "token_type": {
+                                            "type": "string"
+                                        },
+                                        "user": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Identifiants invalides"
+                    }
+                }
+            }
+        },
+        "/api/auth/set-pin": {
+            "post": {
+                "summary": "Définir le PIN de sécurité",
+                "operationId": "6e5d7475ca8434db3a457416494f0b02",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "pin"
+                                ],
+                                "properties": {
+                                    "pin": {
+                                        "type": "string",
+                                        "example": "1234"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "PIN défini"
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "summary": "Déconnexion",
+                "operationId": "df9bdc6c7a6d9f20b983526b2ec0f698",
+                "responses": {
+                    "200": {
+                        "description": "Déconnexion réussie"
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/compte": {
+            "get": {
+                "summary": "Afficher le solde du compte",
+                "operationId": "7abca07d85bb3033fa6991ad42a51da1",
+                "responses": {
+                    "200": {
+                        "description": "Solde affiché",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "solde": {
+                                            "type": "integer"
+                                        },
+                                        "type": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/marchand/generate-qr": {
+            "post": {
+                "tags": [
+                    "Marchand"
+                ],
+                "summary": "Générer un QR code de paiement",
+                "operationId": "a9539ecd0eed48cadbd6c863013c93fa",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "montant"
+                                ],
+                                "properties": {
+                                    "montant": {
+                                        "type": "integer",
+                                        "example": 15000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "QR généré",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "code": {
+                                            "type": "string"
+                                        },
+                                        "lien": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    },
+                    "403": {
+                        "description": "Rôle marchand requis"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/qr/{code}": {
+            "get": {
+                "tags": [
+                    "Marchand"
+                ],
+                "summary": "Afficher les infos du QR code",
+                "operationId": "a124d345b073fa504e7b2124ba297fa9",
+                "parameters": [
+                    {
+                        "name": "code",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Infos QR",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "marchand": {
+                                            "type": "string"
+                                        },
+                                        "montant": {
+                                            "type": "integer"
+                                        },
+                                        "code": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "QR non trouvé"
+                    }
+                }
+            }
+        },
+        "/api/historique": {
+            "get": {
+                "summary": "Historique des transactions",
+                "operationId": "b40f820f0e2f668b39c34be4a271af95",
+                "responses": {
+                    "200": {
+                        "description": "Liste des transactions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "montant": {
+                                                        "type": "integer"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/transactions/depot": {
+            "post": {
+                "tags": [
+                    "Transaction"
+                ],
+                "summary": "Effectuer un dépôt d'argent",
+                "operationId": "69adea14cdaed7ebf3b765eb7d733424",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "montant"
+                                ],
+                                "properties": {
+                                    "montant": {
+                                        "description": "Montant en XOF (5000 = 5000 XOF)",
+                                        "type": "integer",
+                                        "example": 5000
+                                    },
+                                    "agent_id": {
+                                        "description": "ID de l'agent distributeur (optionnel)",
+                                        "type": "string",
+                                        "example": "uuid",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Dépôt réussi"
+                    },
+                    "400": {
+                        "description": "Montant invalide ou agent invalide"
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/transactions/retrait": {
+            "post": {
+                "tags": [
+                    "Transaction"
+                ],
+                "summary": "Effectuer un retrait d'argent",
+                "operationId": "5f0d670067719928d88a7dd91657ddd2",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "montant",
+                                    "agent_id",
+                                    "pin"
+                                ],
+                                "properties": {
+                                    "montant": {
+                                        "description": "Montant en XOF",
+                                        "type": "integer",
+                                        "example": 2000
+                                    },
+                                    "agent_id": {
+                                        "type": "string",
+                                        "example": "uuid"
+                                    },
+                                    "pin": {
+                                        "type": "string",
+                                        "example": "1234"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Retrait réussi"
+                    },
+                    "400": {
+                        "description": "PIN invalide ou solde insuffisant"
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/transactions/transfert": {
+            "post": {
+                "tags": [
+                    "Transaction"
+                ],
+                "summary": "Transférer de l'argent",
+                "operationId": "a4932b3c77b98e547cb00db6e93c802f",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "telephone_dest",
+                                    "montant",
+                                    "pin"
+                                ],
+                                "properties": {
+                                    "telephone_dest": {
+                                        "type": "string",
+                                        "example": "781234567"
+                                    },
+                                    "montant": {
+                                        "description": "Montant en XOF",
+                                        "type": "integer",
+                                        "example": 5000
+                                    },
+                                    "pin": {
+                                        "type": "string",
+                                        "example": "1234"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Solde insuffisant ou PIN incorrect"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/transactions/paiement": {
+            "post": {
+                "tags": [
+                    "Transaction"
+                ],
+                "summary": "Effectuer un paiement via QR",
+                "operationId": "918a290b059547769c9da3789d860cc7",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "code_qr",
+                                    "montant",
+                                    "pin"
+                                ],
+                                "properties": {
+                                    "code_qr": {
+                                        "type": "string",
+                                        "example": "OM-ABC123"
+                                    },
+                                    "montant": {
+                                        "description": "Montant en XOF",
+                                        "type": "integer",
+                                        "example": 10000
+                                    },
+                                    "pin": {
+                                        "type": "string",
+                                        "example": "1234"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Paiement réussi",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "QR invalide ou solde insuffisant"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Admin",
+            "description": "Admin"
+        },
+        {
+            "name": "Auth",
+            "description": "Auth"
+        },
+        {
+            "name": "Marchand",
+            "description": "Marchand"
+        },
+        {
+            "name": "Transaction",
+            "description": "Transaction"
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Token JWT obtenu via l'endpoint /api/auth/verify-sms. Format: Bearer YOUR_JWT_TOKEN"
+            }
+        }
+    }
+}
