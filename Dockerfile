@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /var/www
 
 # Create necessary directories for Laravel before copying files
-RUN mkdir -p bootstrap/cache storage/logs storage/framework/{cache,sessions,views}
+RUN mkdir -p bootstrap/cache storage/logs storage/framework/{cache,sessions,views} public/storage
 
 # Copy application files
 COPY . .
@@ -26,6 +26,10 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 
 # Install dependencies with optimizations
 RUN composer install --optimize-autoloader --no-dev
+
+# Fix broken symlink storage and create proper storage directories
+RUN rm -f public/storage && mkdir -p public/storage
+RUN mkdir -p storage/app/public && chown -R www-data:www-data storage
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www
