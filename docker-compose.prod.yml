@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      args:
+        - APP_ENV=production
+    image: ompaye/api:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - DATABASE_URL=postgresql://ompaye_g679_user:m3Ie0pKlygYqN9lCEeW5d0UmIDfI0Xbf@dpg-d4b4m2fpm1nc739jvbg0-a.oregon-postgres.render.com/ompaye_g679
+      - CACHE_DRIVER=redis
+      - SESSION_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+    volumes:
+      - ./storage:/var/www/storage
+      - ./storage/oauth-private.key:/var/www/storage/oauth-private.key
+      - ./storage/oauth-public.key:/var/www/storage/oauth-public.key
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./docker/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - app
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - app_network
+
+  supervisor:
+    image: php:8.3-fpm-alpine
+    restart: unless-stopped
+    command: supervisord -c /etc/supervisord.conf
+    volumes:
+      - ./docker/supervisord.conf:/etc/supervisord.conf:ro
+      - ./storage/logs:/var/www/storage/logs
+    depends_on:
+      - app
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
+  storage:
+    driver: local

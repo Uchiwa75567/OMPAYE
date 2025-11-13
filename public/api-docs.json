@@ -508,7 +508,7 @@
                 ],
                 "summary": "Afficher les infos du QR code",
                 "operationId": "a124d345b073fa504e7b2124ba297fa9",
-                "parameters": [
+                "parameters": [ 
                     {
                         "name": "code",
                         "in": "path",
