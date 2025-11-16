@@ -1,14 +1,23 @@
-#!/bin/bash
+#!/usr/bin/env sh
+# Entrypoint script for Render / Docker
+# Clears caches (so runtime env vars are used), then starts the app on $PORT (default 9000)
 
-# Start script pour Render - Solution immédiate
-echo "Starting OMPAYE API on Render..."
+set -e
 
-# S'assurer que le PORT est défini
-export PORT=${PORT:-8080}
+echo "Starting OMPAYE API..."
 
-# Optimisations Laravel pour production
-php artisan config:cache 2>/dev/null || true
-php artisan route:cache 2>/dev/null || true
+# Use Render's PORT env if available, otherwise 9000
+PORT_VAL="${PORT:-9000}"
 
-# Démarrer le serveur Laravel
-exec php artisan serve --host=0.0.0.0 --port=$PORT
+# Clear caches so runtime environment variables are picked up
+php artisan config:clear || true
+php artisan cache:clear || true
+php artisan route:clear || true
+php artisan view:clear || true
+
+# Optionally create optimized caches (uncomment if you want to enable caching at runtime)
+# php artisan config:cache || true
+# php artisan route:cache || true
+
+echo "Listening on 0.0.0.0:${PORT_VAL}"
+exec php artisan serve --host=0.0.0.0 --port=${PORT_VAL}

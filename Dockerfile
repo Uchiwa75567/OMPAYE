@@ -28,6 +28,11 @@ RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-d
 
 RUN mkdir -p /var/www/storage/logs && chown -R www-data:www-data /var/www/storage
 
+# Copy and make start script executable
+COPY start.sh /var/www/start.sh
+RUN chmod +x /var/www/start.sh
+
 EXPOSE 9000
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=9000"]
+# Use the start script which will clear caches and start the server on $PORT
+CMD ["/var/www/start.sh"]
