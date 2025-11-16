@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Authentification Swagger OM Paye</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .button {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .steps {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .step {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Test Authentification Swagger</h1>
+            <h2>OM Paye - Orange Money API</h2>
+        </div>
+
+        <div class="test-section">
+            <h3>✅ Statut du Système</h3>
+            <p class="success">● Interface Swagger : OPÉRATIONNELLE</p>
+            <p class="success">● Configuration Bearer Token : ACTIVÉE</p>
+            <p class="success">● Cadenas d'autorisation : VISIBLE EN HAUT À DROITE</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔗 Accès à l'Interface</h3>
+            <p><strong>URL Documentation :</strong></p>
+            <a href="http://localhost:8083/api/documentation" class="button" target="_blank">
+                🚀 Ouvrir Swagger UI
+            </a>
+            <p><em>Cliquer sur le bouton ci-dessus pour accéder à l'interface de documentation.</em></p>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Guide d'Utilisation du Cadenas</h3>
+            <div class="steps">
+                <div class="step">
+                    <strong>1. Localiser le cadenas :</strong> En haut à droite de l'interface Swagger, vous devriez voir un cadenas vert "Bearer Token"
+                </div>
+                <div class="step">
+                    <strong>2. Cliquer sur le cadenas :</strong> Une fenêtre popup s'ouvrira pour saisir le token
+                </div>
+                <div class="step">
+                    <strong>3. Saisir le token :</strong> Entrez votre JWT token dans le format : <code>Bearer YOUR_TOKEN_HERE</code>
+                </div>
+                <div class="step">
+                    <strong>4. Valider :</strong> Cliquez sur "Authorize" pour appliquer le token
+                </div>
+                <div class="step">
+                    <strong>5. Tester :</strong> Les endpoints protégés afficheront maintenant le token dans leurs requêtes
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Workflow de Test Complet</h3>
+            <div class="steps">
+                <div class="step">
+                    <strong>Étape 1 - Authentification :</strong>
+                    <br>POST /api/auth/login avec {"telephone": "785052217"}
+                </div>
+                <div class="step">
+                    <strong>Étape 2 - Vérification :</strong>
+                    <br>POST /api/auth/verify-sms avec {"code": "123456"} (code simulation)
+                </div>
+                <div class="step">
+                    <strong>Étape 3 - Token :</strong>
+                    <br>Copier le token JWT retourné
+                </div>
+                <div class="step">
+                    <strong>Étape 4 - Configuration :</strong>
+                    <br>Utiliser le cadenas pour saisir le token Bearer
+                </div>
+                <div class="step">
+                    <strong>Étape 5 - Test :</strong>
+                    <br>Tester GET /api/compte avec le token configuré
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Fonctionnalités Vérifiées</h3>
+            <ul>
+                <li class="success">✓ Persistance du token activée</li>
+                <li class="success">✓ Bouton Bearer Token affiché en vert</li>
+                <li class="success">✓ Authentification Basic désactivée</li>
+                <li class="success">✓ Support PKCE désactivé (compatibilité)</li>
+                <li class="success">✓ Documentation mise à jour automatiquement</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>⚡ Test Rapide</h3>
+            <p>Pour tester rapidement :</p>
+            <ol>
+                <li>Ouvrir <a href="http://localhost:8083/api/documentation" target="_blank">Swagger UI</a></li>
+                <li>Cliquer sur <strong>POST /api/auth/login</strong></li>
+                <li>Cliquer sur "Try it out"</li>
+                <li>Saisir <code>{"telephone": "785052217"}</code></li>
+                <li>Cliquer sur "Execute"</li>
+                <li>Copier le token de la réponse</li>
+                <li>Utiliser le cadenas pour le configurer</li>
+                <li>Tester un endpoint protégé !</li>
+            </ol>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; color: #6c757d;">
+            <p>OM Paye - Système de Paiement Mobile Orange Money Sénégal 🇸🇳</p>
+            <p><small>Configuration Swagger UI mise à jour le 14 novembre 2025</small></p>
+        </div>
+    </div>
+</body>
+</html>

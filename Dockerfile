@@ -16,7 +16,7 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 
 RUN composer install
 
-RUN chown -R www-data:www-data /var/www
+RUN mkdir -p /var/www/storage/logs && chown -R www-data:www-data /var/www/storage
 
 EXPOSE 9000
 

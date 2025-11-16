@@ -3,30 +3,460 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\Compte;
+use App\Models\Transaction;
+use App\Models\MarchandCode;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
+/**
+ */
 class CompteController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth:api');
+    }
+
     /**
      * @OA\Get(
-     *   path="/api/compte",
-     *   summary="Afficher le solde du compte",
+     *   path="/api/comptes/{num}/dashboard",
+     *   tags={"Comptes"},
+     *   summary="Obtenir le tableau de bord du compte",
      *   security={{"bearerAuth":{}}},
-     *   @OA\Response(response=200, description="Solde affiché", @OA\JsonContent(
-     *     @OA\Property(property="solde", type="integer"),
-     *     @OA\Property(property="type", type="string")
+     *   @OA\Parameter(
+     *     name="num",
+     *     in="path",
+     *     required=true,
+     *     description="Numéro de téléphone du compte",
+     *     @OA\Schema(type="string", example="782345678")
+     *   ),
+     *   @OA\Response(response=200, description="Informations du tableau de bord", @OA\JsonContent(
+     *     @OA\Property(property="user", type="object"),
+     *     @OA\Property(property="compte", type="object"),
+     *     @OA\Property(property="transactions_recentes", type="array", @OA\Items(type="object")),
+     *     @OA\Property(property="statistiques", type="object")
      *   )),
-     *   @OA\Response(response=401, description="Non autorisé")
+     *   @OA\Response(response=404, description="Compte non trouvé"),
+     *   @OA\Response(response=403, description="Accès non autorisé")
      * )
      */
-    public function show(Request $request)
+    public function dashboard(Request $request, $num)
     {
         $user = $request->user();
-        $compte = $user->compte;
+        
+        // Vérifier que l'utilisateur accède à son propre compte ou qu'il est admin
+        if ($user->telephone !== $num && $user->role !== 'admin') {
+            return response()->json(['error' => 'Accès non autorisé'], 403);
+        }
+
+        $compteUser = User::where('telephone', $num)->first();
+        
+        if (!$compteUser || !$compteUser->compte) {
+            return response()->json(['error' => 'Compte non trouvé'], 404);
+        }
+
+        // Obtenir les transactions récentes (limitées à 10)
+        $transactions = Transaction::where(function($query) use ($compteUser) {
+                $query->where('compte_source_id', $compteUser->compte->id)
+                      ->orWhere('compte_dest_id', $compteUser->compte->id);
+            })
+            ->with(['compteSource.user', 'compteDest.user'])
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        // Calculer les statistiques du mois
+        $thisMonthStart = Carbon::now()->startOfMonth();
+        $transactionsDuMois = Transaction::where(function($query) use ($compteUser) {
+                $query->where('compte_source_id', $compteUser->compte->id)
+                      ->orWhere('compte_dest_id', $compteUser->compte->id);
+            })
+            ->where('created_at', '>=', $thisMonthStart)
+            ->get();
+
+        $depenses = $transactionsDuMois->where('compte_source_id', $compteUser->compte->id)->sum('montant');
+        $recettes = $transactionsDuMois->where('compte_dest_id', $compteUser->compte->id)->sum('montant');
+        $nombreTransactions = $transactionsDuMois->count();
 
         return response()->json([
-            'solde' => $compte ? intval($compte->solde / 100) : 0, // Masquer les centimes
-            'type' => $compte ? $compte->type : null,
+            'user' => $compteUser,
+            'compte' => $compteUser->compte,
+            'transactions_recentes' => $transactions,
+            'statistiques' => [
+                'depenses_mois' => $depenses,
+                'recettes_mois' => $recettes,
+                'nombre_transactions_mois' => $nombreTransactions,
+                'solde_actuel' => $compteUser->compte->solde
+            ]
         ]);
+    }
+
+    /**
+     * @OA\Get(
+     *   path="/api/comptes/{num}/solde",
+     *   tags={"Comptes"},
+     *   summary="Obtenir le solde du compte",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Parameter(
+     *     name="num",
+     *     in="path",
+     *     required=true,
+     *     description="Numéro de téléphone du compte",
+     *     @OA\Schema(type="string", example="782345678")
+     *   ),
+     *   @OA\Response(response=200, description="Solde du compte", @OA\JsonContent(
+     *     @OA\Property(property="solde", type="integer", description="Solde en centimes"),
+     *     @OA\Property(property="solde_formate", type="string", description="Solde formaté en FCFA"),
+     *     @OA\Property(property="derniere_maj", type="string")
+     *   )),
+     *   @OA\Response(response=404, description="Compte non trouvé"),
+     *   @OA\Response(response=403, description="Accès non autorisé")
+     * )
+     */
+    public function solde(Request $request, $num)
+    {
+        $user = $request->user();
+        
+        if ($user->telephone !== $num && $user->role !== 'admin') {
+            return response()->json(['error' => 'Accès non autorisé'], 403);
+        }
+
+        $compteUser = User::where('telephone', $num)->first();
+        
+        if (!$compteUser || !$compteUser->compte) {
+            return response()->json(['error' => 'Compte non trouvé'], 404);
+        }
+
+        return response()->json([
+            'solde' => $compteUser->compte->solde,
+            'solde_formate' => number_format($compteUser->compte->solde / 100, 0, ',', ' ') . ' FCFA',
+            'derniere_maj' => $compteUser->compte->updated_at->toISOString()
+        ]);
+    }
+
+    /**
+     * @OA\Get(
+     *   path="/api/comptes/{num}/transactions",
+     *   tags={"Comptes"},
+     *   summary="Obtenir l'historique des transactions",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Parameter(
+     *     name="num",
+     *     in="path",
+     *     required=true,
+     *     description="Numéro de téléphone du compte",
+     *     @OA\Schema(type="string", example="782345678")
+     *   ),
+     *   @OA\Parameter(
+     *     name="page",
+     *     in="query",
+     *     description="Numéro de page",
+     *     @OA\Schema(type="integer", default=1)
+     *   ),
+     *   @OA\Parameter(
+     *     name="per_page",
+     *     in="query",
+     *     description="Nombre d'éléments par page",
+     *     @OA\Schema(type="integer", default=20)
+     *   ),
+     *   @OA\Parameter(
+     *     name="type",
+     *     in="query",
+     *     description="Filtrer par type de transaction",
+     *     @OA\Schema(type="string", enum={"transfert", "paiement", "depot", "retrait"})
+     *   ),
+     *   @OA\Response(response=200, description="Liste des transactions", @OA\JsonContent(
+     *     @OA\Property(property="data", type="array", @OA\Items(type="object")),
+     *     @OA\Property(property="pagination", type="object")
+     *   )),
+     *   @OA\Response(response=404, description="Compte non trouvé"),
+     *   @OA\Response(response=403, description="Accès non autorisé")
+     * )
+     */
+    public function transactions(Request $request, $num)
+    {
+        $user = $request->user();
+        
+        if ($user->telephone !== $num && $user->role !== 'admin') {
+            return response()->json(['error' => 'Accès non autorisé'], 403);
+        }
+
+        $compteUser = User::where('telephone', $num)->first();
+        
+        if (!$compteUser || !$compteUser->compte) {
+            return response()->json(['error' => 'Compte non trouvé'], 404);
+        }
+
+        $query = Transaction::where(function($q) use ($compteUser) {
+                $q->where('compte_source_id', $compteUser->compte->id)
+                  ->orWhere('compte_dest_id', $compteUser->compte->id);
+            })
+            ->with(['compteSource.user', 'compteDest.user']);
+
+        // Filtrer par type si spécifié
+        if ($request->has('type') && $request->type) {
+            $query->where('type', $request->type);
+        }
+
+        // Paginer les résultats
+        $perPage = $request->get('per_page', 20);
+        $transactions = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+        return response()->json($transactions);
+    }
+
+    /**
+     * @OA\Post(
+     *   path="/api/comptes/{num}/transfert",
+     *   tags={"Comptes"},
+     *   summary="Effectuer un transfert",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Parameter(
+     *     name="num",
+     *     in="path",
+     *     required=true,
+     *     description="Numéro de téléphone de l'expéditeur",
+     *     @OA\Schema(type="string", example="782345678")
+     *   ),
+     *   @OA\RequestBody(
+     *     required=true,
+     *     @OA\JsonContent(
+     *       required={"telephone_destinataire", "montant", "password"},
+     *       @OA\Property(property="telephone_destinataire", type="string", example="783456789"),
+     *       @OA\Property(property="montant", type="integer", description="Montant en centimes", example="1000"),
+     *       @OA\Property(property="password", type="string", example="motdepasse123"),
+     *       @OA\Property(property="motif", type="string", example="Transfert d'argent")
+     *     )
+     *   ),
+     *   @OA\Response(response=200, description="Transfert effectué", @OA\JsonContent(
+     *     @OA\Property(property="message", type="string"),
+     *     @OA\Property(property="transaction", type="object"),
+     *     @OA\Property(property="solde_restant", type="integer")
+     *   )),
+     *   @OA\Response(response=400, description="Erreur de validation"),
+     *   @OA\Response(response=403, description="Mot de passe incorrect"),
+     *   @OA\Response(response=404, description="Compte destinataire non trouvé"),
+     *   @OA\Response(response=422, description="Solde insuffisant")
+     * )
+     */
+    public function transfert(Request $request, $num)
+    {
+        $user = $request->user();
+        
+        if ($user->telephone !== $num && $user->role !== 'admin') {
+            return response()->json(['error' => 'Accès non autorisé'], 403);
+        }
+
+        $request->validate([
+            'telephone_destinataire' => 'required|string|regex:/^(78|77)\d{7}$/',
+            'montant' => 'required|integer|min:100|max:50000000', // 1 FCFA à 500,000 FCFA
+            'password' => 'required|string',
+            'motif' => 'nullable|string|max:255',
+        ]);
+
+        // Vérifier le mot de passe
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['error' => 'Mot de passe incorrect'], 403);
+        }
+
+        // Vérifier que le solde est suffisant
+        if ($user->compte->solde < $request->montant) {
+            return response()->json(['error' => 'Solde insuffisant'], 422);
+        }
+
+        // Trouver le compte destinataire
+        $destinataire = User::where('telephone', $request->telephone_destinataire)->first();
+        
+        if (!$destinataire || !$destinataire->compte) {
+            return response()->json(['error' => 'Compte destinataire non trouvé'], 404);
+        }
+
+        // Vérifier qu'on ne transfère pas vers le même compte
+        if ($user->id === $destinataire->id) {
+            return response()->json(['error' => 'Impossible de transférer vers le même compte'], 400);
+        }
+
+        // Effectuer le transfert en transaction
+        try {
+            DB::beginTransaction();
+
+            // Déduire le montant du compte source
+            $user->compte->decrement('solde', $request->montant);
+
+            // Ajouter le montant au compte destination
+            $destinataire->compte->increment('solde', $request->montant);
+
+            // Créer la transaction
+            $transaction = Transaction::create([
+                'compte_source_id' => $user->compte->id,
+                'compte_dest_id' => $destinataire->compte->id,
+                'montant' => $request->montant,
+                'type' => 'transfert',
+                'statut' => 'completed',
+                'motif' => $request->motif ?: 'Transfert OM Paye',
+                'reference' => 'TRF_' . time() . '_' . rand(1000, 9999),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Transfert effectué avec succès',
+                'transaction' => $transaction->load(['compteSource.user', 'compteDest.user']),
+                'solde_restant' => $user->fresh()->compte->solde
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Erreur lors du transfert'], 500);
+        }
+    }
+
+    /**
+     * @OA\Post(
+     *   path="/api/comptes/{num}/paiement",
+     *   tags={"Comptes"},
+     *   summary="Effectuer un paiement (téléphone ou code marchand)",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Parameter(
+     *     name="num",
+     *     in="path",
+     *     required=true,
+     *     description="Numéro de téléphone du payeur",
+     *     @OA\Schema(type="string", example="782345678")
+     *   ),
+     *   @OA\RequestBody(
+     *     required=true,
+     *     @OA\JsonContent(
+     *       oneOf={
+     *         @OA\Schema(
+     *           required={"type", "identifiant_destinataire", "montant", "password"},
+     *           @OA\Property(property="type", type="string", enum={"telephone"}, example="telephone"),
+     *           @OA\Property(property="identifiant_destinataire", type="string", example="783456789"),
+     *           @OA\Property(property="montant", type="integer", example="1500"),
+     *           @OA\Property(property="password", type="string", example="motdepasse123"),
+     *           @OA\Property(property="motif", type="string", example="Paiement marchand")
+     *         ),
+     *         @OA\Schema(
+     *           required={"type", "identifiant_destinataire", "montant", "password"},
+     *           @OA\Property(property="type", type="string", enum={"code_marchand"}, example="code_marchand"),
+     *           @OA\Property(property="identifiant_destinataire", type="string", example="M123456"),
+     *           @OA\Property(property="montant", type="integer", example="2500"),
+     *           @OA\Property(property="password", type="string", example="motdepasse123"),
+     *           @OA\Property(property="motif", type="string", example="Achat marchand")
+     *         )
+     *       }
+     *     )
+     *   ),
+     *   @OA\Response(response=200, description="Paiement effectué", @OA\JsonContent(
+     *     @OA\Property(property="message", type="string"),
+     *     @OA\Property(property="transaction", type="object"),
+     *     @OA\Property(property="solde_restant", type="integer")
+     *   )),
+     *   @OA\Response(response=400, description="Erreur de validation"),
+     *   @OA\Response(response=403, description="Mot de passe incorrect"),
+     *   @OA\Response(response=404, description="Marchand non trouvé"),
+     *   @OA\Response(response=422, description="Solde insuffisant")
+     * )
+     */
+    public function paiement(Request $request, $num)
+    {
+        $user = $request->user();
+        
+        if ($user->telephone !== $num && $user->role !== 'admin') {
+            return response()->json(['error' => 'Accès non autorisé'], 403);
+        }
+
+        $request->validate([
+            'type' => 'required|in:telephone,code_marchand',
+            'identifiant_destinataire' => 'required|string',
+            'montant' => 'required|integer|min:100|max:50000000', // 1 FCFA à 500,000 FCFA
+            'password' => 'required|string',
+            'motif' => 'nullable|string|max:255',
+        ]);
+
+        // Vérifier le mot de passe
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['error' => 'Mot de passe incorrect'], 403);
+        }
+
+        // Vérifier que le solde est suffisant
+        if ($user->compte->solde < $request->montant) {
+            return response()->json(['error' => 'Solde insuffisant'], 422);
+        }
+
+        $destinataire = null;
+
+        if ($request->type === 'telephone') {
+            // Paiement par numéro de téléphone
+            if (!preg_match('/^(78|77)\d{7}$/', $request->identifiant_destinataire)) {
+                return response()->json(['error' => 'Numéro de téléphone invalide'], 400);
+            }
+
+            $destinataire = User::where('telephone', $request->identifiant_destinataire)->first();
+            
+            if (!$destinataire || !$destinataire->compte) {
+                return response()->json(['error' => 'Compte destinataire non trouvé'], 404);
+            }
+
+        } elseif ($request->type === 'code_marchand') {
+            // Paiement par code marchand
+            $marchandCode = MarchandCode::where('code_marchand', $request->identifiant_destinataire)
+                ->where('actif', true)
+                ->first();
+            
+            if (!$marchandCode) {
+                return response()->json(['error' => 'Code marchand invalide ou inactif'], 404);
+            }
+
+            $destinataire = $marchandCode->user;
+        }
+
+        // Vérifier qu'on ne paie pas vers le même compte
+        if ($user->id === $destinataire->id) {
+            return response()->json(['error' => 'Impossible de payer vers le même compte'], 400);
+        }
+
+        // Effectuer le paiement en transaction
+        try {
+            DB::beginTransaction();
+
+            // Déduire le montant du compte source
+            $user->compte->decrement('solde', $request->montant);
+
+            // Ajouter le montant au compte destination
+            $destinataire->compte->increment('solde', $request->montant);
+
+            // Créer la transaction
+            $transaction = Transaction::create([
+                'compte_source_id' => $user->compte->id,
+                'compte_dest_id' => $destinataire->compte->id,
+                'montant' => $request->montant,
+                'type' => 'paiement',
+                'statut' => 'completed',
+                'motif' => $request->motif ?: ($request->type === 'telephone' ? 'Paiement téléphone' : 'Paiement marchand'),
+                'reference' => ($request->type === 'telephone' ? 'PAY_' : 'PM_') . time() . '_' . rand(1000, 9999),
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Paiement effectué avec succès',
+                'transaction' => $transaction->load(['compteSource.user', 'compteDest.user']),
+                'destinataire' => [
+                        'nom' => $destinataire->nom,
+                        'prenom' => $destinataire->prenom,
+                        'role' => $destinataire->role ?? null
+                    ],
+                'solde_restant' => $user->fresh()->compte->solde
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Erreur lors du paiement'], 500);
+        }
     }
 }

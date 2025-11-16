@@ -18,6 +18,33 @@ class TransactionController extends Controller
 {
     /**
      * @OA\Get(
+     *   path="/api/compte",
+     *   summary="Informations du compte utilisateur",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Response(response=200, description="Informations du compte", @OA\JsonContent(
+     *     @OA\Property(property="solde", type="integer", description="Solde en centimes"),
+     *     @OA\Property(property="type", type="string", description="Type de compte")
+     *   )),
+     *   @OA\Response(response=401, description="Non autorisé")
+     * )
+     */
+    public function getCompte(Request $request)
+    {
+        $user = $request->user();
+        $compte = $user->compte;
+
+        if (!$compte) {
+            return response()->json(['error' => 'Compte non trouvé'], 404);
+        }
+
+        return response()->json([
+            'solde' => $compte->solde,
+            'type' => $compte->type,
+        ]);
+    }
+
+    /**
+     * @OA\Get(
      *   path="/api/historique",
      *   summary="Historique des transactions",
      *   security={{"bearerAuth":{}}},

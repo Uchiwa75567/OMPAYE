@@ -40,7 +40,7 @@ Route::get('/api/documentation', function () {
     <script>
         window.onload = () => {
             window.ui = SwaggerUIBundle({
-                url: "' . asset('api-docs.json') . '",
+                url: "/api-docs.json",
                 dom_id: "#swagger-ui",
                 deepLinking: true,
                 presets: [

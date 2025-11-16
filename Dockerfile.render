@@ -1,0 +1,79 @@
+FROM php:8.3-fpm-alpine
+
+# Install system dependencies
+RUN apk add --no-cache \
+    bash \
+    curl \
+    freetype-dev \
+    g++ \
+    gcc \
+    git \
+    gzip \
+    icu-dev \
+    icu-libs \
+    libc-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    libzip-dev \
+    make \
+    postgresql-dev \
+    postgresql-libs
+
+# PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
+        gd \
+        intl \
+        mysqli \
+        opcache \
+        pdo_mysql \
+        pdo_pgsql \
+        zip
+
+WORKDIR /var/www
+
+# Create necessary directories
+RUN mkdir -p bootstrap/cache storage/logs storage/framework/{cache,sessions,views} public/storage
+
+# Copy application files
+COPY . .
+
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Install dependencies
+RUN composer install --optimize-autoloader --no-dev --no-interaction
+
+# Optimize Laravel
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www
+RUN chmod -R 755 /var/www
+RUN chmod -R 775 /var/www/storage
+RUN chmod -R 775 /var/www/bootstrap/cache
+
+# Clean unnecessary files
+RUN rm -rf \
+    .git \
+    .gitignore \
+    .github \
+    tests \
+    phpunit.xml \
+    docker-compose.yml \
+    docker-compose.simple.yml \
+    docker-compose.prod.yml \
+    Dockerfile \
+    .dockerignore \
+    *.md
+
+# Create startup script
+RUN echo '#!/bin/bash' > /var/www/start.sh \
+    && echo 'exec php artisan serve --host=0.0.0.0 --port=$PORT' >> /var/www/start.sh \
+    && chmod +x /var/www/start.sh
+
+EXPOSE 80
+
+CMD ["/var/www/start.sh"]

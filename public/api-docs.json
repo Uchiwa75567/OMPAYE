@@ -1,26 +1,62 @@
 {
     "openapi": "3.0.0",
     "info": {
-        "title": "Orange Money API",
-        "description": "# Orange Money API - Senegal 🟠\n\n## 📱 **Application de Paiement Mobile Orange**\n\nCette API fournit un système complet de paiement mobile inspiré d'Orange Money pour le marché sénégalais. Elle permet aux utilisateurs de gérer leurs comptes, effectuer des transactions, et utiliser les services de paiement via QR codes.\n\n## 🏗️ **Architecture du Système**\n\n### **Types d'Utilisateurs**\n- **👤 Clients** : Utilisateurs finaux avec numéros Orange (77xxxxxxx/78xxxxxxx)\n- **🏪 Marchands** : Commerçants pour paiements QR codes\n- **👥 Distributeurs** : Agents pour dépôts/retraits en espèces\n- **👑 Administrateurs** : Gestion du système\n\n### **Fonctionnalités Principales**\n- ✅ **Auto-registration** : Inscription automatique avec numéros Orange\n- ✅ **Authentification SMS** : Code par SMS avec fallbacks multi-providers\n- ✅ **Gestion Comptes** : Solde, historique, transactions\n- ✅ **Transactions** : Dépôt, retrait, transfert, paiement QR\n- ✅ **JWT Tokens** : Authentification sécurisée Bearer\n- ✅ **PIN Sécurité** : Système de codes PIN pour transactions sensibles\n\n## 🔐 **Authentification**\n\n**Header requis** : `Authorization: Bearer YOUR_JWT_TOKEN`\n\n## 📊 **Système d'Unités**\n- **💰 Unité** : XOF (Franc CFA)\n- **📝 Exemple** : 5000 = 5000 XOF\n- **🗄️ Stockage** : Automatiquement converti en centimes pour la BDD\n\n## 🧪 **Valeurs de Test**\n\n### **Agent Distributeur**\n- **ID** : `a056e54a-4828-4160-a97c-9ab67a7e9116`\n- **Nom** : Diallo Ali\n- **Téléphone** : 789876543\n- **Rôle** : distributeur\n- **PIN** : 1234\n\n### **Utilisateur Test**\n- **Téléphone** : 785052217\n- **Auto-enregistrement** : Possible via SMS\n- **Code SMS** : Affiché dans la réponse (mode simulation)\n\n## 🏃‍♂️ **Guide de Démarrage Rapide**\n\n1. **Connexion** : `POST /api/auth/login` avec numéro Orange\n2. **Vérification** : `POST /api/auth/verify-sms` avec code reçu\n3. **Token JWT** : Utiliser le token pour les appels suivants\n4. **Dépôt** : `POST /api/transactions/depot` avec agent_id\n5. **Solde** : `GET /api/compte` pour voir le solde\n6. **Historique** : `GET /api/historique` pour voir les transactions\n\n## 📋 **Endpoints Principaux**\n\n### **🔐 Authentification**\n- `POST /api/auth/login` - Demande code SMS\n- `POST /api/auth/verify-sms` - Vérification et token\n- `POST /api/auth/set-pin` - Définir PIN sécurité\n\n### **💰 Transactions**\n- `POST /api/transactions/depot` - Dépôt avec agent\n- `POST /api/transactions/retrait` - Retrait avec agent + PIN\n- `POST /api/transactions/transfert` - Transfert vers autre utilisateur\n- `POST /api/transactions/paiement` - Paiement QR code\n\n### **👤 Gestion Compte**\n- `GET /api/compte` - Solde et type de compte\n- `GET /api/historique` - Historique des transactions\n\n## 🌐 **URLs de Base**\n- **API** : http://localhost:8001\n- **Documentation** : http://localhost:8001/api/documentation\n\n---\n*Développé pour Orange Money Sénégal 🇸🇳*",
+        "title": "OM Paye API",
+        "description": "API pour OM Paye - Système de paiement mobile",
         "version": "1.0.0"
     },
-    "servers": [
-        {
-            "url": "http://localhost:8001"
-        }
-    ],
     "paths": {
         "/api/admin/users": {
             "get": {
                 "tags": [
                     "Admin"
                 ],
-                "summary": "Liste des utilisateurs",
+                "summary": "Liste des utilisateurs avec filtres",
                 "operationId": "8734f0eb21eaec99b614d902ba09f030",
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "Filtrer par type d'utilisateur",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "admin",
+                                "marchand",
+                                "utilisateur"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Rechercher par nom, prénom ou téléphone",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Numéro de page",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Nombre d'éléments par page",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Liste users",
+                        "description": "Liste des utilisateurs",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -30,6 +66,9 @@
                                             "items": {
                                                 "type": "object"
                                             }
+                                        },
+                                        "pagination": {
+                                            "type": "object"
                                         }
                                     },
                                     "type": "object"
@@ -41,7 +80,119 @@
                         "description": "Non autorisé"
                     },
                     "403": {
-                        "description": "Rôle admin requis"
+                        "description": "Accès administrateur requis"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{id}": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Détails d'un utilisateur spécifique",
+                "operationId": "fce593e8f474c12b3b475c00ca61f822",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de l'utilisateur",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Détails utilisateur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "type": "object"
+                                        },
+                                        "compte": {
+                                            "type": "object"
+                                        },
+                                        "transactions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "statistiques": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Utilisateur non trouvé"
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    },
+                    "403": {
+                        "description": "Accès administrateur requis"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Supprimer un utilisateur",
+                "operationId": "44eee40ddd4c6892e817da79193968d2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de l'utilisateur à supprimer",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Utilisateur supprimé",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Utilisateur non trouvé"
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    },
+                    "403": {
+                        "description": "Accès administrateur requis"
                     }
                 },
                 "security": [
@@ -56,11 +207,77 @@
                 "tags": [
                     "Admin"
                 ],
-                "summary": "Toutes les transactions",
+                "summary": "Toutes les transactions avec filtres",
                 "operationId": "ffa4d9d0d6b7c1dd523cda0426235a11",
+                "parameters": [
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "Filtrer par type de transaction",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "transfert",
+                                "paiement",
+                                "depot",
+                                "retrait"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "statut",
+                        "in": "query",
+                        "description": "Filtrer par statut",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "completed",
+                                "failed",
+                                "cancelled"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "date_debut",
+                        "in": "query",
+                        "description": "Date de début (YYYY-MM-DD)",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "date_fin",
+                        "in": "query",
+                        "description": "Date de fin (YYYY-MM-DD)",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Numéro de page",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Nombre d'éléments par page",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Liste transactions",
+                        "description": "Liste des transactions",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -70,83 +287,8 @@
                                             "items": {
                                                 "type": "object"
                                             }
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Non autorisé"
-                    },
-                    "403": {
-                        "description": "Rôle admin requis"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/admin/create-marchand": {
-            "post": {
-                "tags": [
-                    "Admin"
-                ],
-                "summary": "Créer un compte marchand",
-                "operationId": "914bcb92e8c4f2d9af15c3a421edf291",
-                "requestBody": {
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "nom",
-                                    "prenom",
-                                    "telephone",
-                                    "sexe",
-                                    "password"
-                                ],
-                                "properties": {
-                                    "nom": {
-                                        "type": "string",
-                                        "example": "Dupont"
-                                    },
-                                    "prenom": {
-                                        "type": "string",
-                                        "example": "Jean"
-                                    },
-                                    "telephone": {
-                                        "type": "string",
-                                        "example": "781234567"
-                                    },
-                                    "sexe": {
-                                        "type": "string",
-                                        "example": "M"
-                                    },
-                                    "password": {
-                                        "type": "string",
-                                        "example": "password123"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Marchand créé",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "message": {
-                                            "type": "string"
                                         },
-                                        "user": {
+                                        "pagination": {
                                             "type": "object"
                                         }
                                     },
@@ -159,7 +301,308 @@
                         "description": "Non autorisé"
                     },
                     "403": {
-                        "description": "Rôle admin requis"
+                        "description": "Accès administrateur requis"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/statistiques": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Statistiques globales du système",
+                "operationId": "948f8c365fe88b15fe68a9b596a28eb2",
+                "responses": {
+                    "200": {
+                        "description": "Statistiques globales",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "utilisateurs": {
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer"
+                                                },
+                                                "utilisateurs_normaux": {
+                                                    "type": "integer"
+                                                },
+                                                "marchands": {
+                                                    "type": "integer"
+                                                },
+                                                "admins": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "transactions": {
+                                            "properties": {
+                                                "total": {
+                                                    "type": "integer"
+                                                },
+                                                "total_montant": {
+                                                    "type": "integer"
+                                                },
+                                                "transferts": {
+                                                    "type": "integer"
+                                                },
+                                                "paiements": {
+                                                    "type": "integer"
+                                                },
+                                                "depots": {
+                                                    "type": "integer"
+                                                },
+                                                "retraits": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "solde_total": {
+                                            "type": "integer"
+                                        },
+                                        "periode": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    },
+                    "403": {
+                        "description": "Accès administrateur requis"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/marchands": {
+            "get": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Liste des marchands avec leurs codes",
+                "operationId": "09d7c5d907d5b89a8aa4edcb37095519",
+                "parameters": [
+                    {
+                        "name": "actif",
+                        "in": "query",
+                        "description": "Filtrer par statut actif/inactif",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Numéro de page",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Nombre d'éléments par page",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des marchands",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    },
+                    "403": {
+                        "description": "Accès administrateur requis"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/marchands/{id}/toggle-status": {
+            "put": {
+                "tags": [
+                    "Admin"
+                ],
+                "summary": "Activer/désactiver un code marchand",
+                "operationId": "30eb2e023dd7139f9f961f1c777ce3a1",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de l'utilisateur marchand",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "actif"
+                                ],
+                                "properties": {
+                                    "actif": {
+                                        "type": "boolean",
+                                        "example": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Statut mis à jour",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "marchand": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Marchand non trouvé"
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    },
+                    "403": {
+                        "description": "Accès administrateur requis"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Créer un nouveau compte (Admin uniquement)",
+                "operationId": "c7bb21a0d87049e161b8e4c9b0d909f2",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "nom",
+                                    "prenom",
+                                    "cni",
+                                    "telephone",
+                                    "type"
+                                ],
+                                "properties": {
+                                    "nom": {
+                                        "type": "string",
+                                        "example": "Dupont"
+                                    },
+                                    "prenom": {
+                                        "type": "string",
+                                        "example": "Jean"
+                                    },
+                                    "cni": {
+                                        "type": "string",
+                                        "example": "123456789"
+                                    },
+                                    "telephone": {
+                                        "type": "string",
+                                        "example": "782345678"
+                                    },
+                                    "sexe": {
+                                        "type": "string",
+                                        "enum": [
+                                            "M",
+                                            "F"
+                                        ],
+                                        "example": "M"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "marchand",
+                                            "utilisateur"
+                                        ],
+                                        "example": "utilisateur"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "motdepasse123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Compte créé avec succès"
+                    },
+                    "403": {
+                        "description": "Accès non autorisé"
                     },
                     "422": {
                         "description": "Données invalides"
@@ -172,13 +615,13 @@
                 ]
             }
         },
-        "/api/auth/login": {
+        "/api/auth/send-otp": {
             "post": {
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Demande de code SMS",
-                "operationId": "dd51a484b7fa0f97c7680fdbde14cf5f",
+                "summary": "Envoyer un code OTP par SMS",
+                "operationId": "bffceebe22269794653d542fb5e548dd",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -190,7 +633,7 @@
                                 "properties": {
                                     "telephone": {
                                         "type": "string",
-                                        "example": "771234567"
+                                        "example": "782345678"
                                     }
                                 },
                                 "type": "object"
@@ -200,51 +643,38 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "SMS envoyé",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "session_id": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                        "description": "OTP envoyé"
                     },
                     "400": {
-                        "description": "Erreur"
+                        "description": "Numéro invalide"
                     }
                 }
             }
         },
-        "/api/auth/verify-sms": {
+        "/api/auth/verify-otp": {
             "post": {
-                "summary": "Vérifier le code SMS et obtenir le token",
-                "operationId": "29f6fc73768d83c9c3738e79e7ff36fa",
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Vérifier le code OTP et obtenir un token",
+                "operationId": "abcb5741589707b15c7ecac7a67c13aa",
                 "requestBody": {
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "required": [
+                                    "telephone",
                                     "code"
                                 ],
                                 "properties": {
+                                    "telephone": {
+                                        "type": "string",
+                                        "example": "782345678"
+                                    },
                                     "code": {
                                         "type": "string",
                                         "example": "123456"
-                                    },
-                                    "password": {
-                                        "description": "Mot de passe pour les futures connexions (optionnel pour nouveaux utilisateurs)",
-                                        "type": "string",
-                                        "example": "motdepasse123",
-                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -254,7 +684,7 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Token obtenu",
+                        "description": "Token généré",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -266,19 +696,10 @@
                                             "type": "string"
                                         },
                                         "user": {
-                                            "properties": {
-                                                "nom": {
-                                                    "type": "string"
-                                                },
-                                                "prenom": {
-                                                    "type": "string"
-                                                }
-                                            },
                                             "type": "object"
                                         },
-                                        "first_login": {
-                                            "description": "True si c'est le premier login",
-                                            "type": "boolean"
+                                        "expires_at": {
+                                            "type": "string"
                                         }
                                     },
                                     "type": "object"
@@ -292,13 +713,13 @@
                 }
             }
         },
-        "/api/auth/login-password": {
+        "/api/auth/login": {
             "post": {
                 "tags": [
                     "Auth"
                 ],
                 "summary": "Connexion avec téléphone et mot de passe",
-                "operationId": "ae14d2beace50522df34bb8d90519e23",
+                "operationId": "dd51a484b7fa0f97c7680fdbde14cf5f",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -351,22 +772,313 @@
                 }
             }
         },
-        "/api/auth/set-pin": {
+        "/api/auth/logout": {
             "post": {
-                "summary": "Définir le PIN de sécurité",
-                "operationId": "6e5d7475ca8434db3a457416494f0b02",
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Déconnexion",
+                "operationId": "df9bdc6c7a6d9f20b983526b2ec0f698",
+                "responses": {
+                    "200": {
+                        "description": "Déconnexion réussie"
+                    },
+                    "401": {
+                        "description": "Token invalide"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/me": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Obtenir les informations de l'utilisateur connecté",
+                "operationId": "b5de204f5e452ef51327c691aa99e77c",
+                "responses": {
+                    "200": {
+                        "description": "Informations utilisateur",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Token invalide"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/comptes/{num}/dashboard": {
+            "get": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Obtenir le tableau de bord du compte",
+                "operationId": "07b68a4d889a7f5b487359d35023c19d",
+                "parameters": [
+                    {
+                        "name": "num",
+                        "in": "path",
+                        "description": "Numéro de téléphone du compte",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "782345678"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Informations du tableau de bord",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "type": "object"
+                                        },
+                                        "compte": {
+                                            "type": "object"
+                                        },
+                                        "transactions_recentes": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "statistiques": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Compte non trouvé"
+                    },
+                    "403": {
+                        "description": "Accès non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/comptes/{num}/solde": {
+            "get": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Obtenir le solde du compte",
+                "operationId": "36d755762c30c44e006e0e6027e8e174",
+                "parameters": [
+                    {
+                        "name": "num",
+                        "in": "path",
+                        "description": "Numéro de téléphone du compte",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "782345678"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Solde du compte",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "solde": {
+                                            "description": "Solde en centimes",
+                                            "type": "integer"
+                                        },
+                                        "solde_formate": {
+                                            "description": "Solde formaté en FCFA",
+                                            "type": "string"
+                                        },
+                                        "derniere_maj": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Compte non trouvé"
+                    },
+                    "403": {
+                        "description": "Accès non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/comptes/{num}/transactions": {
+            "get": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Obtenir l'historique des transactions",
+                "operationId": "1339f75ab14bc908db77927f9964f3c5",
+                "parameters": [
+                    {
+                        "name": "num",
+                        "in": "path",
+                        "description": "Numéro de téléphone du compte",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "782345678"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Numéro de page",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Nombre d'éléments par page",
+                        "schema": {
+                            "type": "integer",
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "type",
+                        "in": "query",
+                        "description": "Filtrer par type de transaction",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "transfert",
+                                "paiement",
+                                "depot",
+                                "retrait"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Liste des transactions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "pagination": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Compte non trouvé"
+                    },
+                    "403": {
+                        "description": "Accès non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/comptes/{num}/transfert": {
+            "post": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Effectuer un transfert",
+                "operationId": "a6444498aea55c690835c6b1c2ce0296",
+                "parameters": [
+                    {
+                        "name": "num",
+                        "in": "path",
+                        "description": "Numéro de téléphone de l'expéditeur",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "782345678"
+                        }
+                    }
+                ],
                 "requestBody": {
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "pin"
+                                    "telephone_destinataire",
+                                    "montant",
+                                    "password"
                                 ],
                                 "properties": {
-                                    "pin": {
+                                    "telephone_destinataire": {
                                         "type": "string",
-                                        "example": "1234"
+                                        "example": "783456789"
+                                    },
+                                    "montant": {
+                                        "description": "Montant en centimes",
+                                        "type": "integer",
+                                        "example": "1000"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "motdepasse123"
+                                    },
+                                    "motif": {
+                                        "type": "string",
+                                        "example": "Transfert d'argent"
                                     }
                                 },
                                 "type": "object"
@@ -376,54 +1088,19 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "PIN défini"
-                    },
-                    "401": {
-                        "description": "Non autorisé"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/auth/logout": {
-            "post": {
-                "summary": "Déconnexion",
-                "operationId": "df9bdc6c7a6d9f20b983526b2ec0f698",
-                "responses": {
-                    "200": {
-                        "description": "Déconnexion réussie"
-                    },
-                    "401": {
-                        "description": "Non autorisé"
-                    }
-                },
-                "security": [
-                    {
-                        "bearerAuth": []
-                    }
-                ]
-            }
-        },
-        "/api/compte": {
-            "get": {
-                "summary": "Afficher le solde du compte",
-                "operationId": "7abca07d85bb3033fa6991ad42a51da1",
-                "responses": {
-                    "200": {
-                        "description": "Solde affiché",
+                        "description": "Transfert effectué",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "solde": {
-                                            "type": "integer"
-                                        },
-                                        "type": {
+                                        "message": {
                                             "type": "string"
+                                        },
+                                        "transaction": {
+                                            "type": "object"
+                                        },
+                                        "solde_restant": {
+                                            "type": "integer"
                                         }
                                     },
                                     "type": "object"
@@ -431,8 +1108,157 @@
                             }
                         }
                     },
-                    "401": {
-                        "description": "Non autorisé"
+                    "400": {
+                        "description": "Erreur de validation"
+                    },
+                    "403": {
+                        "description": "Mot de passe incorrect"
+                    },
+                    "404": {
+                        "description": "Compte destinataire non trouvé"
+                    },
+                    "422": {
+                        "description": "Solde insuffisant"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/comptes/{num}/paiement": {
+            "post": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Effectuer un paiement (téléphone ou code marchand)",
+                "operationId": "3e67bb7d6c9419908f372ea9d8b4ca72",
+                "parameters": [
+                    {
+                        "name": "num",
+                        "in": "path",
+                        "description": "Numéro de téléphone du payeur",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "782345678"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "required": [
+                                            "type",
+                                            "identifiant_destinataire",
+                                            "montant",
+                                            "password"
+                                        ],
+                                        "properties": {
+                                            "type": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "telephone"
+                                                ],
+                                                "example": "telephone"
+                                            },
+                                            "identifiant_destinataire": {
+                                                "type": "string",
+                                                "example": "783456789"
+                                            },
+                                            "montant": {
+                                                "type": "integer",
+                                                "example": "1500"
+                                            },
+                                            "password": {
+                                                "type": "string",
+                                                "example": "motdepasse123"
+                                            },
+                                            "motif": {
+                                                "type": "string",
+                                                "example": "Paiement marchand"
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    {
+                                        "required": [
+                                            "type",
+                                            "identifiant_destinataire",
+                                            "montant",
+                                            "password"
+                                        ],
+                                        "properties": {
+                                            "type": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "code_marchand"
+                                                ],
+                                                "example": "code_marchand"
+                                            },
+                                            "identifiant_destinataire": {
+                                                "type": "string",
+                                                "example": "M123456"
+                                            },
+                                            "montant": {
+                                                "type": "integer",
+                                                "example": "2500"
+                                            },
+                                            "password": {
+                                                "type": "string",
+                                                "example": "motdepasse123"
+                                            },
+                                            "motif": {
+                                                "type": "string",
+                                                "example": "Achat marchand"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Paiement effectué",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "transaction": {
+                                            "type": "object"
+                                        },
+                                        "solde_restant": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Erreur de validation"
+                    },
+                    "403": {
+                        "description": "Mot de passe incorrect"
+                    },
+                    "404": {
+                        "description": "Marchand non trouvé"
+                    },
+                    "422": {
+                        "description": "Solde insuffisant"
                     }
                 },
                 "security": [
@@ -546,6 +1372,42 @@
                 }
             }
         },
+        "/api/compte": {
+            "get": {
+                "summary": "Informations du compte utilisateur",
+                "operationId": "95b6694a3fec01268d56823f5fcb7e72",
+                "responses": {
+                    "200": {
+                        "description": "Informations du compte",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "solde": {
+                                            "description": "Solde en centimes",
+                                            "type": "integer"
+                                        },
+                                        "type": {
+                                            "description": "Type de compte",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/historique": {
             "get": {
                 "summary": "Historique des transactions",
@@ -598,7 +1460,8 @@
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "montant"
+                                    "montant",
+                                    "agent_id"
                                 ],
                                 "properties": {
                                     "montant": {
@@ -607,10 +1470,9 @@
                                         "example": 5000
                                     },
                                     "agent_id": {
-                                        "description": "ID de l'agent distributeur (optionnel)",
+                                        "description": "ID de l'agent distributeur obligatoire",
                                         "type": "string",
-                                        "example": "uuid",
-                                        "nullable": true
+                                        "example": "uuid"
                                     }
                                 },
                                 "type": "object"
@@ -818,6 +1680,16 @@
             }
         }
     },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Token JWT pour l'authentification",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
     "tags": [
         {
             "name": "Admin",
@@ -828,6 +1700,10 @@
             "description": "Auth"
         },
         {
+            "name": "Comptes",
+            "description": "Comptes"
+        },
+        {
             "name": "Marchand",
             "description": "Marchand"
         },
@@ -835,15 +1711,5 @@
             "name": "Transaction",
             "description": "Transaction"
         }
-    ],
-    "components": {
-        "securitySchemes": {
-            "bearerAuth": {
-                "type": "http",
-                "scheme": "bearer",
-                "bearerFormat": "JWT",
-                "description": "Token JWT obtenu via l'endpoint /api/auth/verify-sms. Format: Bearer YOUR_JWT_TOKEN"
-            }
-        }
-    }
+    ]
 }

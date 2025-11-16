@@ -23,11 +23,13 @@ class User extends Authenticatable
     protected $fillable = [
         'nom',
         'prenom',
+        'cni',
         'telephone',
         'sexe',
         'password',
         'pin',
         'role',
+        'active',
     ];
 
     /**
@@ -54,6 +56,11 @@ class User extends Authenticatable
     public function compte()
     {
         return $this->hasOne(Compte::class);
+    }
+
+    public function marchandCode()
+    {
+        return $this->hasOne(MarchandCode::class);
     }
 
     public function transactions()

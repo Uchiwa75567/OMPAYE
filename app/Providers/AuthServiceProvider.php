@@ -23,6 +23,7 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies();
 
-        // Passport::routes(); // Commented for host
+        // Les routes Passport sont définies manuellement dans routes/api.php
+        // pour éviter les problèmes de configuration automatique
     }
 }

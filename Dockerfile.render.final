@@ -1,0 +1,84 @@
+FROM php:8.3-fpm-alpine
+
+# Installation des dépendances système
+RUN apk add --no-cache \
+    bash \
+    curl \
+    freetype-dev \
+    g++ \
+    gcc \
+    git \
+    gzip \
+    icu-dev \
+    icu-libs \
+    libc-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    libzip-dev \
+    make \
+    postgresql-dev \
+    postgresql-libs
+
+# Configuration et extensions PHP
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install \
+        gd \
+        intl \
+        mysqli \
+        opcache \
+        pdo_mysql \
+        pdo_pgsql \
+        zip
+
+# Créer le répertoire de travail
+WORKDIR /var/www
+
+# Créer les répertoires nécessaires
+RUN mkdir -p bootstrap/cache storage/logs storage/framework/{cache,sessions,views} public/storage
+
+# Copier les fichiers de l'application
+COPY . .
+
+# Installer Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Installer les dépendances Laravel
+RUN composer install --optimize-autoloader --no-dev --no-interaction
+
+# Optimisation Laravel
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
+
+# Configurer les permissions
+RUN chown -R www-data:www-data /var/www
+RUN chmod -R 755 /var/www
+RUN chmod -R 775 /var/www/storage
+RUN chmod -R 775 /var/www/bootstrap/cache
+
+# Nettoyer les fichiers inutiles
+RUN rm -rf \
+    .git \
+    .gitignore \
+    .github \
+    tests \
+    phpunit.xml \
+    docker-compose.yml \
+    docker-compose.simple.yml \
+    docker-compose.prod.yml \
+    Dockerfile \
+    .dockerignore \
+    *.md
+
+# Créer un script de démarrage simple
+RUN echo '#!/bin/bash' > /var/www/entrypoint.sh && \
+    echo 'PORT=${PORT:-8080}' >> /var/www/entrypoint.sh && \
+    echo 'echo "Starting server on port $PORT..."' >> /var/www/entrypoint.sh && \
+    echo 'exec php -S 0.0.0.0:$PORT -t public' >> /var/www/entrypoint.sh && \
+    chmod +x /var/www/entrypoint.sh
+
+# Exposer le port
+EXPOSE 8080
+
+# Démarrage
+CMD ["/var/www/entrypoint.sh"]
