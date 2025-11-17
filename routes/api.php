@@ -44,6 +44,14 @@ Route::prefix('auth')->middleware('auth:api')->group(function () {
 // Endpoints des comptes (protégés)
 Route::middleware('auth:api')->group(function () {
     Route::prefix('comptes')->group(function () {
+        // Routes sans numéro de téléphone (utilise le token de l'utilisateur connecté)
+        Route::get('dashboard', [\App\Http\Controllers\Api\CompteController::class, 'dashboard']);
+        Route::get('solde', [\App\Http\Controllers\Api\CompteController::class, 'solde']);
+        Route::get('transactions', [\App\Http\Controllers\Api\CompteController::class, 'transactions']);
+        Route::post('transfert', [\App\Http\Controllers\Api\CompteController::class, 'transfert']);
+        Route::post('paiement', [\App\Http\Controllers\Api\CompteController::class, 'paiement']);
+        
+        // Routes avec numéro de téléphone (pour compatibilité admin)
         Route::get('{num}/dashboard', [\App\Http\Controllers\Api\CompteController::class, 'dashboard']);
         Route::get('{num}/solde', [\App\Http\Controllers\Api\CompteController::class, 'solde']);
         Route::get('{num}/transactions', [\App\Http\Controllers\Api\CompteController::class, 'transactions']);

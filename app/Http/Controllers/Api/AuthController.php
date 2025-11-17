@@ -111,6 +111,30 @@ class AuthController extends Controller
      *   @OA\Response(response=422, description="Données invalides")
      * )
      */
+    /**
+     * @OA\Post(
+     *   path="/api/auth/register",
+     *   tags={"Auth"},
+     *   summary="Créer un nouveau compte utilisateur (admin only)",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\RequestBody(
+     *     required=true,
+     *     @OA\JsonContent(
+     *       required={"nom", "prenom", "email", "telephone", "sexe", "type"},
+     *       @OA\Property(property="nom", type="string", example="Diallo"),
+     *       @OA\Property(property="prenom", type="string", example="Amadou"),
+     *       @OA\Property(property="email", type="string", format="email", example="amadou.diallo@example.com"),
+     *       @OA\Property(property="telephone", type="string", example="781234567"),
+     *       @OA\Property(property="sexe", type="string", enum={"M", "F"}, example="M"),
+     *       @OA\Property(property="type", type="string", enum={"marchand", "utilisateur"}, example="utilisateur"),
+     *       @OA\Property(property="password", type="string", example="motdepasse123")
+     *     )
+     *   ),
+     *   @OA\Response(response=201, description="Compte créé avec succès"),
+     *   @OA\Response(response=403, description="Accès non autorisé - admin only"),
+     *   @OA\Response(response=422, description="Validation error")
+     * )
+     */
     public function register(Request $request)
     {
         $user = $request->user();
@@ -123,7 +147,7 @@ class AuthController extends Controller
         $request->validate([
             'nom' => 'required|string|max:255',
             'prenom' => 'required|string|max:255',
-            'cni' => 'required|string|unique:users,cni',
+            'email' => 'required|string|email|unique:users,email',
             'telephone' => 'required|string|unique:users,telephone',
             'sexe' => 'required|string|in:M,F',
             'type' => 'required|string|in:marchand,utilisateur',
@@ -134,7 +158,7 @@ class AuthController extends Controller
         $userData = [
             'nom' => $request->nom,
             'prenom' => $request->prenom,
-            'cni' => $request->cni,
+            'email' => $request->email,
             'telephone' => $request->telephone,
             'sexe' => $request->sexe,
             // Keep request param name 'type' for backward compatibility but store it in DB as 'role'
@@ -283,8 +307,8 @@ class AuthController extends Controller
      *   ),
      *   @OA\Response(response=200, description="Token généré", @OA\JsonContent(
      *     @OA\Property(property="access_token", type="string"),
+     *     @OA\Property(property="refresh_token", type="string"),
      *     @OA\Property(property="token_type", type="string"),
-     *     @OA\Property(property="user", type="object"),
      *     @OA\Property(property="expires_at", type="string")
      *   )),
      *   @OA\Response(response=400, description="Code invalide")
@@ -316,8 +340,11 @@ class AuthController extends Controller
         // Activer le compte après vérification OTP réussie
         $user->update(['active' => true]);
 
-        // Générer token
-        $token = $user->createToken('Mobile App Token', ['*'], Carbon::now()->addDays(30))->accessToken;
+        // Générer access token (30 jours) - sans scopes pour éviter l'erreur OAuth
+        $accessToken = $user->createToken('Mobile App Token', [], Carbon::now()->addDays(30))->accessToken;
+        
+        // Générer refresh token (90 jours)
+        $refreshToken = $user->createToken('Mobile App Refresh Token', [], Carbon::now()->addDays(90))->accessToken;
 
         // Créer le compte s'il n'existe pas
         if (!$user->compte) {
@@ -329,9 +356,9 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'access_token' => $token,
+            'access_token' => $accessToken,
+            'refresh_token' => $refreshToken,
             'token_type' => 'Bearer',
-            'user' => $user->load('compte'),
             'expires_at' => Carbon::now()->addDays(30)->toISOString(),
         ]);
     }
@@ -379,7 +406,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken('Mobile App Token', ['*'], Carbon::now()->addDays(30))->accessToken;
+        $token = $user->createToken('Mobile App Token', [], Carbon::now()->addDays(30))->accessToken;
 
         return response()->json([
             'access_token' => $token,

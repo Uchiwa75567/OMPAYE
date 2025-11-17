@@ -10,6 +10,7 @@ use App\Models\MarchandCode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 
 /**
@@ -23,17 +24,10 @@ class CompteController extends Controller
 
     /**
      * @OA\Get(
-     *   path="/api/comptes/{num}/dashboard",
+     *   path="/api/comptes/dashboard",
      *   tags={"Comptes"},
-     *   summary="Obtenir le tableau de bord du compte",
+     *   summary="Obtenir le tableau de bord du compte connecté",
      *   security={{"bearerAuth":{}}},
-     *   @OA\Parameter(
-     *     name="num",
-     *     in="path",
-     *     required=true,
-     *     description="Numéro de téléphone du compte",
-     *     @OA\Schema(type="string", example="782345678")
-     *   ),
      *   @OA\Response(response=200, description="Informations du tableau de bord", @OA\JsonContent(
      *     @OA\Property(property="user", type="object"),
      *     @OA\Property(property="compte", type="object"),
@@ -44,9 +38,14 @@ class CompteController extends Controller
      *   @OA\Response(response=403, description="Accès non autorisé")
      * )
      */
-    public function dashboard(Request $request, $num)
+    public function dashboard(Request $request, $num = null)
     {
         $user = $request->user();
+        
+        // Si le numéro n'est pas fourni, utiliser le numéro de l'utilisateur connecté
+        if ($num === null) {
+            $num = $user->telephone;
+        }
         
         // Vérifier que l'utilisateur accède à son propre compte ou qu'il est admin
         if ($user->telephone !== $num && $user->role !== 'admin') {
@@ -97,17 +96,10 @@ class CompteController extends Controller
 
     /**
      * @OA\Get(
-     *   path="/api/comptes/{num}/solde",
+     *   path="/api/comptes/solde",
      *   tags={"Comptes"},
      *   summary="Obtenir le solde du compte",
      *   security={{"bearerAuth":{}}},
-     *   @OA\Parameter(
-     *     name="num",
-     *     in="path",
-     *     required=true,
-     *     description="Numéro de téléphone du compte",
-     *     @OA\Schema(type="string", example="782345678")
-     *   ),
      *   @OA\Response(response=200, description="Solde du compte", @OA\JsonContent(
      *     @OA\Property(property="solde", type="integer", description="Solde en centimes"),
      *     @OA\Property(property="solde_formate", type="string", description="Solde formaté en FCFA"),
@@ -117,9 +109,14 @@ class CompteController extends Controller
      *   @OA\Response(response=403, description="Accès non autorisé")
      * )
      */
-    public function solde(Request $request, $num)
+    public function solde(Request $request, $num = null)
     {
         $user = $request->user();
+        
+        // Si le numéro n'est pas fourni, utiliser le numéro de l'utilisateur connecté
+        if ($num === null) {
+            $num = $user->telephone;
+        }
         
         if ($user->telephone !== $num && $user->role !== 'admin') {
             return response()->json(['error' => 'Accès non autorisé'], 403);
@@ -140,17 +137,10 @@ class CompteController extends Controller
 
     /**
      * @OA\Get(
-     *   path="/api/comptes/{num}/transactions",
+     *   path="/api/comptes/transactions",
      *   tags={"Comptes"},
      *   summary="Obtenir l'historique des transactions",
      *   security={{"bearerAuth":{}}},
-     *   @OA\Parameter(
-     *     name="num",
-     *     in="path",
-     *     required=true,
-     *     description="Numéro de téléphone du compte",
-     *     @OA\Schema(type="string", example="782345678")
-     *   ),
      *   @OA\Parameter(
      *     name="page",
      *     in="query",
@@ -177,9 +167,14 @@ class CompteController extends Controller
      *   @OA\Response(response=403, description="Accès non autorisé")
      * )
      */
-    public function transactions(Request $request, $num)
+    public function transactions(Request $request, $num = null)
     {
         $user = $request->user();
+        
+        // Si le numéro n'est pas fourni, utiliser le numéro de l'utilisateur connecté
+        if ($num === null) {
+            $num = $user->telephone;
+        }
         
         if ($user->telephone !== $num && $user->role !== 'admin') {
             return response()->json(['error' => 'Accès non autorisé'], 403);
@@ -206,14 +201,49 @@ class CompteController extends Controller
         $perPage = $request->get('per_page', 20);
         $transactions = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return response()->json($transactions);
+        // Enlever les liens de pagination
+        return response()->json([
+            'data' => $transactions->items(),
+            'pagination' => [
+                'current_page' => $transactions->currentPage(),
+                'per_page' => $transactions->perPage(),
+                'total' => $transactions->total(),
+                'last_page' => $transactions->lastPage(),
+            ]
+        ]);
     }
 
     /**
      * @OA\Post(
+     *   path="/api/comptes/transfert",
+     *   tags={"Comptes"},
+     *   summary="Effectuer un transfert (utilise le token pour l'expéditeur)",
+     *   description="Effectue un transfert d'argent de l'utilisateur connecté vers un destinataire. Le numéro et l'authentification de l'expéditeur sont déduits du token.",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\RequestBody(
+     *     required=true,
+     *     @OA\JsonContent(
+     *       required={"telephone_destinataire", "montant"},
+     *       @OA\Property(property="telephone_destinataire", type="string", example="771234563"),
+     *       @OA\Property(property="montant", type="integer", description="Montant en FCFA", example="5000"),
+     *       @OA\Property(property="motif", type="string", example="Transfert d'argent")
+     *     )
+     *   ),
+     *   @OA\Response(response=200, description="Transfert effectué", @OA\JsonContent(
+     *     @OA\Property(property="message", type="string"),
+     *     @OA\Property(property="transaction", type="object"),
+     *     @OA\Property(property="solde_restant", type="integer")
+     *   )),
+     *   @OA\Response(response=400, description="Erreur de validation"),
+     *   @OA\Response(response=403, description="Accès non autorisé"),
+     *   @OA\Response(response=404, description="Compte destinataire non trouvé"),
+     *   @OA\Response(response=422, description="Solde insuffisant")
+     * )
+     * 
+     * @OA\Post(
      *   path="/api/comptes/{num}/transfert",
      *   tags={"Comptes"},
-     *   summary="Effectuer un transfert",
+     *   summary="Effectuer un transfert (route compatibilité avec numéro)",
      *   security={{"bearerAuth":{}}},
      *   @OA\Parameter(
      *     name="num",
@@ -227,7 +257,7 @@ class CompteController extends Controller
      *     @OA\JsonContent(
      *       required={"telephone_destinataire", "montant", "password"},
      *       @OA\Property(property="telephone_destinataire", type="string", example="783456789"),
-     *       @OA\Property(property="montant", type="integer", description="Montant en centimes", example="1000"),
+     *       @OA\Property(property="montant", type="integer", description="Montant en FCFA", example="1000"),
      *       @OA\Property(property="password", type="string", example="motdepasse123"),
      *       @OA\Property(property="motif", type="string", example="Transfert d'argent")
      *     )
@@ -243,24 +273,44 @@ class CompteController extends Controller
      *   @OA\Response(response=422, description="Solde insuffisant")
      * )
      */
-    public function transfert(Request $request, $num)
+    public function transfert(Request $request, $num = null)
     {
         $user = $request->user();
         
-        if ($user->telephone !== $num && $user->role !== 'admin') {
+        // Si num est fourni, vérifier que l'utilisateur y a accès
+        if ($num !== null && $user->telephone !== $num && $user->role !== 'admin') {
             return response()->json(['error' => 'Accès non autorisé'], 403);
         }
 
-        $request->validate([
-            'telephone_destinataire' => 'required|string|regex:/^(78|77)\d{7}$/',
-            'montant' => 'required|integer|min:100|max:50000000', // 1 FCFA à 500,000 FCFA
-            'password' => 'required|string',
-            'motif' => 'nullable|string|max:255',
-        ]);
-
-        // Vérifier le mot de passe
-        if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['error' => 'Mot de passe incorrect'], 403);
+        // Validation différente selon si num est fourni ou non
+        if ($num === null) {
+            // Endpoint sans num: pas de password requis
+            $request->validate([
+                'telephone_destinataire' => ['required', 'string', function ($attribute, $value, $fail) {
+                    if (!preg_match('/^(78|77)[0-9]{7}$/', $value)) {
+                        $fail('Le numéro de téléphone doit commencer par 77 ou 78 et contenir 9 chiffres.');
+                    }
+                }],
+                'montant' => 'required|integer|min:100|max:50000000',
+                'motif' => 'nullable|string|max:255',
+            ]);
+        } else {
+            // Endpoint avec num: password requis pour compatibilité
+            $request->validate([
+                'telephone_destinataire' => ['required', 'string', function ($attribute, $value, $fail) {
+                    if (!preg_match('/^(78|77)[0-9]{7}$/', $value)) {
+                        $fail('Le numéro de téléphone doit commencer par 77 ou 78 et contenir 9 chiffres.');
+                    }
+                }],
+                'montant' => 'required|integer|min:100|max:50000000',
+                'password' => 'required|string',
+                'motif' => 'nullable|string|max:255',
+            ]);
+            
+            // Vérifier le mot de passe seulement si fourni
+            if (!Hash::check($request->password, $user->password)) {
+                return response()->json(['error' => 'Mot de passe incorrect'], 403);
+            }
         }
 
         // Vérifier que le solde est suffisant
@@ -317,9 +367,47 @@ class CompteController extends Controller
 
     /**
      * @OA\Post(
+     *   path="/api/comptes/paiement",
+     *   tags={"Comptes"},
+     *   summary="Effectuer un paiement (utilise le token pour le payeur)",
+     *   description="Effectue un paiement via téléphone ou code marchand. L'utilisateur payeur et l'authentification sont déduits du token.",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\RequestBody(
+     *     required=true,
+     *     @OA\JsonContent(
+     *       oneOf={
+     *         @OA\Schema(
+     *           required={"type", "identifiant_destinataire", "montant"},
+     *           @OA\Property(property="type", type="string", enum={"telephone"}, example="telephone"),
+     *           @OA\Property(property="identifiant_destinataire", type="string", example="771234563"),
+     *           @OA\Property(property="montant", type="integer", example="1500"),
+     *           @OA\Property(property="motif", type="string", example="Paiement ami")
+     *         ),
+     *         @OA\Schema(
+     *           required={"type", "identifiant_destinataire", "montant"},
+     *           @OA\Property(property="type", type="string", enum={"code_marchand"}, example="code_marchand"),
+     *           @OA\Property(property="identifiant_destinataire", type="string", example="MBO001"),
+     *           @OA\Property(property="montant", type="integer", example="2500"),
+     *           @OA\Property(property="motif", type="string", example="Achat articles")
+     *         )
+     *       }
+     *     )
+     *   ),
+     *   @OA\Response(response=200, description="Paiement effectué", @OA\JsonContent(
+     *     @OA\Property(property="message", type="string"),
+     *     @OA\Property(property="transaction", type="object"),
+     *     @OA\Property(property="solde_restant", type="integer")
+     *   )),
+     *   @OA\Response(response=400, description="Erreur de validation"),
+     *   @OA\Response(response=403, description="Accès non autorisé"),
+     *   @OA\Response(response=404, description="Marchand ou destinataire non trouvé"),
+     *   @OA\Response(response=422, description="Solde insuffisant")
+     * )
+     * 
+     * @OA\Post(
      *   path="/api/comptes/{num}/paiement",
      *   tags={"Comptes"},
-     *   summary="Effectuer un paiement (téléphone ou code marchand)",
+     *   summary="Effectuer un paiement (route compatibilité avec numéro)",
      *   security={{"bearerAuth":{}}},
      *   @OA\Parameter(
      *     name="num",
@@ -362,25 +450,38 @@ class CompteController extends Controller
      *   @OA\Response(response=422, description="Solde insuffisant")
      * )
      */
-    public function paiement(Request $request, $num)
+    public function paiement(Request $request, $num = null)
     {
         $user = $request->user();
         
-        if ($user->telephone !== $num && $user->role !== 'admin') {
+        // Si num est fourni, vérifier que l'utilisateur y a accès
+        if ($num !== null && $user->telephone !== $num && $user->role !== 'admin') {
             return response()->json(['error' => 'Accès non autorisé'], 403);
         }
 
-        $request->validate([
-            'type' => 'required|in:telephone,code_marchand',
-            'identifiant_destinataire' => 'required|string',
-            'montant' => 'required|integer|min:100|max:50000000', // 1 FCFA à 500,000 FCFA
-            'password' => 'required|string',
-            'motif' => 'nullable|string|max:255',
-        ]);
-
-        // Vérifier le mot de passe
-        if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['error' => 'Mot de passe incorrect'], 403);
+        // Validation différente selon si num est fourni ou non
+        if ($num === null) {
+            // Endpoint sans num: pas de password requis
+            $request->validate([
+                'type' => 'required|in:telephone,code_marchand',
+                'identifiant_destinataire' => 'required|string',
+                'montant' => 'required|integer|min:100|max:50000000',
+                'motif' => 'nullable|string|max:255',
+            ]);
+        } else {
+            // Endpoint avec num: password requis pour compatibilité
+            $request->validate([
+                'type' => 'required|in:telephone,code_marchand',
+                'identifiant_destinataire' => 'required|string',
+                'montant' => 'required|integer|min:100|max:50000000',
+                'password' => 'required|string',
+                'motif' => 'nullable|string|max:255',
+            ]);
+            
+            // Vérifier le mot de passe seulement si fourni
+            if (!Hash::check($request->password, $user->password)) {
+                return response()->json(['error' => 'Mot de passe incorrect'], 403);
+            }
         }
 
         // Vérifier que le solde est suffisant

@@ -59,12 +59,20 @@ class TransactionController extends Controller
         $user = $request->user();
         $compte = $user->compte;
 
-        $transactions = Transaction::where('compte_source_id', $compte->id)
+        $paginated = Transaction::where('compte_source_id', $compte->id)
             ->orWhere('compte_dest_id', $compte->id)
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return response()->json($transactions);
+        return response()->json([
+            'data' => $paginated->items(),
+            'pagination' => [
+                'current_page' => $paginated->currentPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+                'last_page' => $paginated->lastPage(),
+            ]
+        ]);
     }
 
     /**

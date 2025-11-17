@@ -540,7 +540,7 @@
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Créer un nouveau compte (Admin uniquement)",
+                "summary": "Créer un nouveau compte utilisateur (admin only)",
                 "operationId": "c7bb21a0d87049e161b8e4c9b0d909f2",
                 "requestBody": {
                     "required": true,
@@ -550,26 +550,28 @@
                                 "required": [
                                     "nom",
                                     "prenom",
-                                    "cni",
+                                    "email",
                                     "telephone",
+                                    "sexe",
                                     "type"
                                 ],
                                 "properties": {
                                     "nom": {
                                         "type": "string",
-                                        "example": "Dupont"
+                                        "example": "Diallo"
                                     },
                                     "prenom": {
                                         "type": "string",
-                                        "example": "Jean"
+                                        "example": "Amadou"
                                     },
-                                    "cni": {
+                                    "email": {
                                         "type": "string",
-                                        "example": "123456789"
+                                        "format": "email",
+                                        "example": "amadou.diallo@example.com"
                                     },
                                     "telephone": {
                                         "type": "string",
-                                        "example": "782345678"
+                                        "example": "781234567"
                                     },
                                     "sexe": {
                                         "type": "string",
@@ -602,10 +604,10 @@
                         "description": "Compte créé avec succès"
                     },
                     "403": {
-                        "description": "Accès non autorisé"
+                        "description": "Accès non autorisé - admin only"
                     },
                     "422": {
-                        "description": "Données invalides"
+                        "description": "Validation error"
                     }
                 },
                 "security": [
@@ -692,11 +694,11 @@
                                         "access_token": {
                                             "type": "string"
                                         },
-                                        "token_type": {
+                                        "refresh_token": {
                                             "type": "string"
                                         },
-                                        "user": {
-                                            "type": "object"
+                                        "token_type": {
+                                            "type": "string"
                                         },
                                         "expires_at": {
                                             "type": "string"
@@ -828,25 +830,13 @@
                 ]
             }
         },
-        "/api/comptes/{num}/dashboard": {
+        "/api/comptes/dashboard": {
             "get": {
                 "tags": [
                     "Comptes"
                 ],
-                "summary": "Obtenir le tableau de bord du compte",
-                "operationId": "07b68a4d889a7f5b487359d35023c19d",
-                "parameters": [
-                    {
-                        "name": "num",
-                        "in": "path",
-                        "description": "Numéro de téléphone du compte",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "example": "782345678"
-                        }
-                    }
-                ],
+                "summary": "Obtenir le tableau de bord du compte connecté",
+                "operationId": "3f56eec168c486d5cdb5b537639014c3",
                 "responses": {
                     "200": {
                         "description": "Informations du tableau de bord",
@@ -889,25 +879,13 @@
                 ]
             }
         },
-        "/api/comptes/{num}/solde": {
+        "/api/comptes/solde": {
             "get": {
                 "tags": [
                     "Comptes"
                 ],
                 "summary": "Obtenir le solde du compte",
-                "operationId": "36d755762c30c44e006e0e6027e8e174",
-                "parameters": [
-                    {
-                        "name": "num",
-                        "in": "path",
-                        "description": "Numéro de téléphone du compte",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "example": "782345678"
-                        }
-                    }
-                ],
+                "operationId": "7d1811c8589cccff154f7c087c224f35",
                 "responses": {
                     "200": {
                         "description": "Solde du compte",
@@ -946,24 +924,14 @@
                 ]
             }
         },
-        "/api/comptes/{num}/transactions": {
+        "/api/comptes/transactions": {
             "get": {
                 "tags": [
                     "Comptes"
                 ],
                 "summary": "Obtenir l'historique des transactions",
-                "operationId": "1339f75ab14bc908db77927f9964f3c5",
+                "operationId": "cb9d593a3e10e658c6666faa469d390a",
                 "parameters": [
-                    {
-                        "name": "num",
-                        "in": "path",
-                        "description": "Numéro de téléphone du compte",
-                        "required": true,
-                        "schema": {
-                            "type": "string",
-                            "example": "782345678"
-                        }
-                    },
                     {
                         "name": "page",
                         "in": "query",
@@ -1033,12 +1001,91 @@
                 ]
             }
         },
+        "/api/comptes/transfert": {
+            "post": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Effectuer un transfert (utilise le token pour l'expéditeur)",
+                "description": "Effectue un transfert d'argent de l'utilisateur connecté vers un destinataire. Le numéro et l'authentification de l'expéditeur sont déduits du token.",
+                "operationId": "62f381490e92570cff809feff8558414",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "telephone_destinataire",
+                                    "montant"
+                                ],
+                                "properties": {
+                                    "telephone_destinataire": {
+                                        "type": "string",
+                                        "example": "771234563"
+                                    },
+                                    "montant": {
+                                        "description": "Montant en FCFA",
+                                        "type": "integer",
+                                        "example": "5000"
+                                    },
+                                    "motif": {
+                                        "type": "string",
+                                        "example": "Transfert d'argent"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Transfert effectué",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "transaction": {
+                                            "type": "object"
+                                        },
+                                        "solde_restant": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Erreur de validation"
+                    },
+                    "403": {
+                        "description": "Accès non autorisé"
+                    },
+                    "404": {
+                        "description": "Compte destinataire non trouvé"
+                    },
+                    "422": {
+                        "description": "Solde insuffisant"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/comptes/{num}/transfert": {
             "post": {
                 "tags": [
                     "Comptes"
                 ],
-                "summary": "Effectuer un transfert",
+                "summary": "Effectuer un transfert (route compatibilité avec numéro)",
                 "operationId": "a6444498aea55c690835c6b1c2ce0296",
                 "parameters": [
                     {
@@ -1068,7 +1115,7 @@
                                         "example": "783456789"
                                     },
                                     "montant": {
-                                        "description": "Montant en centimes",
+                                        "description": "Montant en FCFA",
                                         "type": "integer",
                                         "example": "1000"
                                     },
@@ -1128,12 +1175,131 @@
                 ]
             }
         },
+        "/api/comptes/paiement": {
+            "post": {
+                "tags": [
+                    "Comptes"
+                ],
+                "summary": "Effectuer un paiement (utilise le token pour le payeur)",
+                "description": "Effectue un paiement via téléphone ou code marchand. L'utilisateur payeur et l'authentification sont déduits du token.",
+                "operationId": "186a9d16c3f3c4d47408682ed011235f",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "oneOf": [
+                                    {
+                                        "required": [
+                                            "type",
+                                            "identifiant_destinataire",
+                                            "montant"
+                                        ],
+                                        "properties": {
+                                            "type": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "telephone"
+                                                ],
+                                                "example": "telephone"
+                                            },
+                                            "identifiant_destinataire": {
+                                                "type": "string",
+                                                "example": "771234563"
+                                            },
+                                            "montant": {
+                                                "type": "integer",
+                                                "example": "1500"
+                                            },
+                                            "motif": {
+                                                "type": "string",
+                                                "example": "Paiement ami"
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    {
+                                        "required": [
+                                            "type",
+                                            "identifiant_destinataire",
+                                            "montant"
+                                        ],
+                                        "properties": {
+                                            "type": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "code_marchand"
+                                                ],
+                                                "example": "code_marchand"
+                                            },
+                                            "identifiant_destinataire": {
+                                                "type": "string",
+                                                "example": "MBO001"
+                                            },
+                                            "montant": {
+                                                "type": "integer",
+                                                "example": "2500"
+                                            },
+                                            "motif": {
+                                                "type": "string",
+                                                "example": "Achat articles"
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Paiement effectué",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "transaction": {
+                                            "type": "object"
+                                        },
+                                        "solde_restant": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Erreur de validation"
+                    },
+                    "403": {
+                        "description": "Accès non autorisé"
+                    },
+                    "404": {
+                        "description": "Marchand ou destinataire non trouvé"
+                    },
+                    "422": {
+                        "description": "Solde insuffisant"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/comptes/{num}/paiement": {
             "post": {
                 "tags": [
                     "Comptes"
                 ],
-                "summary": "Effectuer un paiement (téléphone ou code marchand)",
+                "summary": "Effectuer un paiement (route compatibilité avec numéro)",
                 "operationId": "3e67bb7d6c9419908f372ea9d8b4ca72",
                 "parameters": [
                     {

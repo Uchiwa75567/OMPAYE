@@ -91,9 +91,17 @@ class AdminController extends Controller
         }
 
         $perPage = $request->get('per_page', 20);
-        $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
+        $paginated = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return response()->json($users);
+        return response()->json([
+            'data' => $paginated->items(),
+            'pagination' => [
+                'current_page' => $paginated->currentPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+                'last_page' => $paginated->lastPage(),
+            ]
+        ]);
     }
 
     /**
@@ -241,9 +249,17 @@ class AdminController extends Controller
         }
 
         $perPage = $request->get('per_page', 20);
-        $transactions = $query->orderBy('created_at', 'desc')->paginate($perPage);
+        $paginated = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return response()->json($transactions);
+        return response()->json([
+            'data' => $paginated->items(),
+            'pagination' => [
+                'current_page' => $paginated->currentPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+                'last_page' => $paginated->lastPage(),
+            ]
+        ]);
     }
 
     /**
@@ -358,9 +374,17 @@ class AdminController extends Controller
         }
 
         $perPage = $request->get('per_page', 20);
-        $marchands = $query->orderBy('created_at', 'desc')->paginate($perPage);
+        $paginated = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return response()->json($marchands);
+        return response()->json([
+            'data' => $paginated->items(),
+            'pagination' => [
+                'current_page' => $paginated->currentPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+                'last_page' => $paginated->lastPage(),
+            ]
+        ]);
     }
 
     /**

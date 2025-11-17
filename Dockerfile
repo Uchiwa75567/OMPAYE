@@ -28,7 +28,7 @@ RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-d
 
 RUN mkdir -p /var/www/storage/logs && chown -R www-data:www-data /var/www/storage
 
-# Copy and make start script executable
+# Copy and make start script executableo
 COPY start.sh /var/www/start.sh
 RUN chmod +x /var/www/start.sh
 
